@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>KOITOHANA · 流光起始页</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --theme-color: #aaa7ff;
+            --theme-light: #c8c5ff;
+            --theme-dark: #8a87d9;
+            --theme-glow: rgba(170, 167, 255, 0.6);
+            --theme-border: #aaa7ff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #1C1C1C;
+            font-family: 'Segoe UI', 'Inter', 'Poppins', system-ui, sans-serif;
+        }
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .content {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        /* ===== 时间显示 ===== */
+        .time-display {
+            position: fixed;
+            top: 20px;
+            left: 25px;
+            z-index: 50;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.9rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            line-height: 1.6;
+            font-variant-numeric: tabular-nums;
+            pointer-events: none;
+            text-shadow: 0 0 8px rgba(0,0,0,0.6);
+        }
+        .time-display .time {
+            font-size: 1.4rem;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* ===== 右上角按钮组 ===== */
+        .top-right-group {
+            position: fixed;
+            top: 20px;
+            right: 25px;
+            z-index: 100;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .music-btn, .color-picker-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: #ccc;
+            cursor: pointer;
+            transition: all 0.25s;
+            backdrop-filter: blur(6px);
+        }
+        .music-btn:hover, .color-picker-btn:hover {
+            background: rgba(255,255,255,0.18);
+            color: #fff;
+            transform: scale(1.05);
+        }
+        .music-btn.playing {
+            color: var(--theme-color);
+            box-shadow: 0 0 20px var(--theme-glow);
+        }
+
+        /* ===== 调色板卡片 ===== */
+        .color-picker-card {
+            position: fixed;
+            top: 75px;
+            right: 25px;
+            z-index: 101;
+            background: #2a2a2a;
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 20px 22px 22px 22px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+            border: 0.5px solid rgba(255,255,255,0.08);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            min-width: 220px;
+        }
+        .color-picker-card.open { display: flex; }
+        .color-picker-card .pick-label {
+            color: #bbb;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: 400;
+        }
+        .color-picker-card .preview-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .color-picker-card .preview-box {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: var(--theme-color);
+            flex-shrink: 0;
+        }
+        .color-picker-card .hex-input {
+            background: #1f1f1f;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 6px 10px;
+            color: #eee;
+            font-size: 0.85rem;
+            width: 100px;
+            font-family: monospace;
+            outline: none;
+        }
+        .color-picker-card .hex-input:focus {
+            border-color: var(--theme-color);
+        }
+        .color-picker-card .picker-area {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            width: 100%;
+        }
+        .color-picker-card .sat-val-canvas {
+            width: 180px;
+            height: 180px;
+            border-radius: 12px;
+            cursor: crosshair;
+            border: 1px solid #3a3a3a;
+            flex-shrink: 0;
+        }
+        .color-picker-card .hue-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 180px;
+            height: 16px;
+            background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+            border-radius: 12px;
+            border: 1px solid #3a3a3a;
+            cursor: pointer;
+            outline: none;
+            transform: rotate(90deg);
+            transform-origin: center;
+            width: 180px;
+            margin: 30px 0;
+        }
+        .color-picker-card .hue-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #222;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        }
+        .color-picker-card .hue-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #222;
+            cursor: pointer;
+        }
+        .color-picker-card .apply-btn {
+            background: var(--theme-color);
+            border: none;
+            border-radius: 40px;
+            padding: 8px 18px;
+            color: #1A1A1A;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+            letter-spacing: 0.5px;
+        }
+        .color-picker-card .apply-btn:hover {
+            opacity: 0.85;
+            transform: scale(0.97);
+        }
+
+        /* ===== 搜索相关 ===== */
+        .search-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: -8vh;
+            width: 100%;
+        }
+        .brand {
+            font-size: 2.2rem;
+            font-weight: 500;
+            letter-spacing: 3px;
+            color: #b0b0b8;
+            text-shadow: 0 0 1px rgba(255,255,255,0.1);
+            transition: color 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        .brand.active-brand {
+            color: var(--theme-color);
+        }
+        .search-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: auto;
+        }
+        .search-input {
+            width: 560px;
+            max-width: 75vw;
+            background: rgba(45, 45, 52, 0.65);
+            backdrop-filter: blur(12px);
+            border: 1.5px solid rgba(160, 160, 170, 0.3);
+            border-radius: 60px;
+            padding: 1rem 1.8rem;
+            font-size: 1.1rem;
+            color: #f0f0f0;
+            font-weight: 400;
+            outline: none;
+            transition: all 0.35s ease-in-out;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            font-family: inherit;
+        }
+        .search-input::placeholder {
+            color: #b8b8c4;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            opacity: 0.8;
+        }
+        .search-input:hover {
+            border-color: var(--theme-color);
+            box-shadow: 0 0 0 1px var(--theme-color), 0 6px 20px var(--theme-glow);
+        }
+        .search-input.active-search {
+            width: 680px;
+            transform: scale(1.02);
+            border-color: var(--theme-color);
+            box-shadow: 0 0 18px var(--theme-glow), 0 0 0 2px var(--theme-color);
+            background: rgba(40, 40, 48, 0.75);
+            transition: width 0.4s cubic-bezier(0.2, 1, 0.3, 1), transform 0.3s ease, box-shadow 0.25s;
+        }
+        @media (max-width: 780px) {
+            .search-input { width: 420px; }
+            .search-input.active-search { width: 520px; }
+            .brand { font-size: 1.8rem; }
+        }
+        @media (max-width: 550px) {
+            .search-input { width: 300px; }
+            .search-input.active-search { width: 380px; }
+            .time-display { font-size: 0.7rem; top: 12px; left: 15px; }
+            .time-display .time { font-size: 1rem; }
+        }
+
+        /* ===== 底部导航 ===== */
+        .bottom-nav {
+            position: absolute;
+            bottom: 2rem;
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.8rem 1.8rem;
+            padding: 0.8rem 1.5rem;
+            z-index: 20;
+            backdrop-filter: blur(6px);
+            background: rgba(20, 20, 24, 0.4);
+            border-radius: 60px;
+            width: fit-content;
+            max-width: 94vw;
+            margin: 0 auto;
+            border: 0.5px solid rgba(90, 90, 100, 0.3);
+        }
+        .nav-link {
+            color: #cdcddd;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 480;
+            padding: 0.3rem 0.8rem;
+            border-radius: 40px;
+            transition: all 0.25s;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .nav-link:hover {
+            color: var(--theme-color);
+            background: rgba(170, 167, 255, 0.15);
+            text-shadow: 0 0 5px var(--theme-color);
+            transform: translateY(-2px);
+        }
+        .search-input:focus {
+            border-color: var(--theme-color);
+            box-shadow: 0 0 12px var(--theme-glow);
+        }
+        ::selection {
+            background: var(--theme-color);
+            color: #1A1A1A;
+        }
+
+        @media (max-width: 600px) {
+            .color-picker-card {
+                right: 10px;
+                top: 70px;
+                padding: 16px;
+                min-width: 180px;
+            }
+            .color-picker-card .sat-val-canvas {
+                width: 140px;
+                height: 140px;
+            }
+            .color-picker-card .hue-slider {
+                width: 140px;
+                height: 14px;
+                margin: 20px 0;
+            }
+            .bottom-nav {
+                gap: 0.4rem 1rem;
+                padding: 0.5rem 1rem;
+            }
+            .nav-link {
+                font-size: 0.8rem;
+                padding: 0.2rem 0.5rem;
+            }
+            .top-right-group {
+                right: 15px;
+                gap: 8px;
+            }
+            .music-btn, .color-picker-btn {
+                width: 38px;
+                height: 38px;
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="content">
+    <!-- 时间 -->
+    <div class="time-display" id="timeDisplay">
+        <div class="time" id="timeText">00:00</div>
+        <div id="dateText">0000/00/00</div>
+    </div>
+
+    <!-- 右上角按钮组 -->
+    <div class="top-right-group">
+        <div class="music-btn" id="musicBtn">
+            <i class="fas fa-play" id="musicIcon"></i>
+        </div>
+        <div class="color-picker-btn" id="colorPickerBtn">
+            <i class="fas fa-palette"></i>
+        </div>
+    </div>
+
+    <!-- 调色板卡片 -->
+    <div class="color-picker-card" id="colorPickerCard">
+        <div class="pick-label">选择主题色</div>
+        <div class="preview-row">
+            <div class="preview-box" id="previewBox"></div>
+            <input class="hex-input" id="hexInput" value="#aaa7ff" maxlength="7">
+        </div>
+        <div class="picker-area">
+            <canvas class="sat-val-canvas" id="satValCanvas" width="300" height="300"></canvas>
+            <input type="range" class="hue-slider" id="hueSlider" min="0" max="360" value="240">
+        </div>
+        <button class="apply-btn" id="applyColorBtn">应用颜色</button>
+    </div>
+
+    <!-- 搜索 -->
+    <div class="search-section">
+        <div class="brand" id="brandText">KOITOHANA</div>
+        <div class="search-wrapper">
+            <input type="text" class="search-input" id="searchBox" placeholder="Search" autocomplete="off">
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <a href="https://deepseek.com" class="nav-link" target="_blank" rel="noopener noreferrer">DeepSeek</a>
+        <a href="https://bilibili.com" class="nav-link" target="_blank" rel="noopener noreferrer">Bilibili</a>
+        <a href="https://kimi.moonshot.cn" class="nav-link" target="_blank" rel="noopener noreferrer">Kimi</a>
+        <a href="https://www.doubao.com" class="nav-link" target="_blank" rel="noopener noreferrer">豆包</a>
+        <a href="https://image.baidu.com" class="nav-link" target="_blank" rel="noopener noreferrer">百度图片</a>
+        <a href="https://koitohana.top" class="nav-link" target="_blank" rel="noopener noreferrer">Koitohana</a>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ==================== 1. 时间更新 ====================
+        function updateTime() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('timeText').textContent = hh + ':' + mm;
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            document.getElementById('dateText').textContent = y + '/' + m + '/' + d;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // ==================== 2. 波浪背景 + 渐变 ====================
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let time = 0;
+        let animId = null;
+        let waves = [];
+        let themeColor = '#aaa7ff';
+
+        const BG_TOP = '#333333';
+        const BG_BOTTOM = '#1C1C1C';
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function generateWaveColors(hex) {
+            const base = hexToRgb(hex);
+            if (!base) return ['#c8c5ff', '#dddaff', '#aaa7ff', '#b8b5ff'];
+            const r = base.r, g = base.g, b = base.b;
+            return [
+                `rgb(${Math.min(255,r+40)},${Math.min(255,g+40)},${Math.min(255,b+40)})`,
+                `rgb(${Math.min(255,r+80)},${Math.min(255,g+80)},${Math.min(255,b+80)})`,
+                `rgb(${r},${g},${b})`,
+                `rgb(${Math.min(255,r+20)},${Math.min(255,g+20)},${Math.min(255,b+20)})`
+            ];
+        }
+
+        function initWaves() {
+            waves = [];
+            const baseYStart = 0.50;
+            const baseYRange = 0.25;
+            const colors = generateWaveColors(themeColor);
+            for (let i = 0; i < 4; i++) {
+                waves.push({
+                    amplitude: 20 + Math.random() * 30,
+                    frequency: 0.006 + Math.random() * 0.006,
+                    speed: 0.30 + Math.random() * 0.20,
+                    phaseOffset: Math.random() * Math.PI * 2,
+                    baseY: baseYStart + (i / 3) * baseYRange,
+                    color: colors[i % colors.length],
+                    lineWidth: 2.2 + Math.random() * 1.5,
+                });
+            }
+        }
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            drawWaves();
+        }
+
+        function drawWaves() {
+            if (!ctx || width === 0 || height === 0) return;
+            ctx.clearRect(0, 0, width, height);
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, BG_TOP);
+            gradient.addColorStop(1, BG_BOTTOM);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            if (!waves.length) return;
+            for (let w of waves) {
+                const step = Math.max(1, width / 250);
+                ctx.beginPath();
+                ctx.lineWidth = w.lineWidth;
+                ctx.strokeStyle = w.color;
+                ctx.shadowBlur = 24;
+                ctx.shadowColor = w.color;
+                let first = true;
+                for (let x = 0; x <= width; x += step) {
+                    const angle = w.frequency * x + time * w.speed + w.phaseOffset;
+                    const offsetY = Math.sin(angle) * w.amplitude;
+                    const y = w.baseY * height + offsetY;
+                    if (first) { ctx.moveTo(x, y); first = false; }
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.lineWidth = w.lineWidth * 0.6;
+                ctx.strokeStyle = w.color + 'cc';
+                ctx.shadowBlur = 40;
+                first = true;
+                for (let x = 0; x <= width; x += step) {
+                    const angle = w.frequency * x + time * w.speed + w.phaseOffset;
+                    const offsetY = Math.sin(angle) * w.amplitude;
+                    const y = w.baseY * height + offsetY;
+                    if (first) { ctx.moveTo(x, y); first = false; }
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function animateWaves() {
+            time += 0.022;
+            drawWaves();
+            animId = requestAnimationFrame(animateWaves);
+        }
+
+        function startWaveAnimation() {
+            if (animId) cancelAnimationFrame(animId);
+            initWaves();
+            resizeCanvas();
+            if (!animId) animateWaves();
+        }
+
+        function updateThemeColor(newColor) {
+            themeColor = newColor;
+            const root = document.documentElement;
+            root.style.setProperty('--theme-color', newColor);
+            const rgb = hexToRgb(newColor);
+            if (rgb) {
+                const light = `rgb(${Math.min(255, rgb.r+60)},${Math.min(255, rgb.g+60)},${Math.min(255, rgb.b+60)})`;
+                const dark = `rgb(${Math.max(0, rgb.r-40)},${Math.max(0, rgb.g-40)},${Math.max(0, rgb.b-40)})`;
+                const glow = `rgba(${rgb.r},${rgb.g},${rgb.b},0.6)`;
+                root.style.setProperty('--theme-light', light);
+                root.style.setProperty('--theme-dark', dark);
+                root.style.setProperty('--theme-glow', glow);
+                root.style.setProperty('--theme-border', newColor);
+            }
+            initWaves();
+            document.getElementById('previewBox').style.background = newColor;
+            document.getElementById('hexInput').value = newColor;
+            drawWaves();
+        }
+
+        // ==================== 3. 调色板 ====================
+        const pickerBtn = document.getElementById('colorPickerBtn');
+        const pickerCard = document.getElementById('colorPickerCard');
+        const satValCanvas = document.getElementById('satValCanvas');
+        const satValCtx = satValCanvas.getContext('2d');
+        const hueSlider = document.getElementById('hueSlider');
+        const hexInput = document.getElementById('hexInput');
+        const previewBox = document.getElementById('previewBox');
+        const applyBtn = document.getElementById('applyColorBtn');
+
+        let currentHue = 240, currentSat = 0.8, currentVal = 0.7; // #aaa7ff 大约亮度0.7
+        let isPointerDown = false;
+
+        function drawSatValCanvas(hue) {
+            const w = satValCanvas.width, h = satValCanvas.height;
+            const imageData = satValCtx.createImageData(w, h);
+            const data = imageData.data;
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const sat = x / w;
+                    const val = 1 - (y / h);
+                    const rgb = hsvToRgb(hue, sat, val);
+                    const idx = (y * w + x) * 4;
+                    data[idx] = rgb[0];
+                    data[idx+1] = rgb[1];
+                    data[idx+2] = rgb[2];
+                    data[idx+3] = 255;
+                }
+            }
+            satValCtx.putImageData(imageData, 0, 0);
+        }
+
+        function hsvToRgb(h, s, v) {
+            let r, g, b;
+            const i = Math.floor(h / 60) % 6;
+            const f = h / 60 - Math.floor(h / 60);
+            const p = v * (1 - s);
+            const q = v * (1 - f * s);
+            const t = v * (1 - (1 - f) * s);
+            switch (i) {
+                case 0: r = v; g = t; b = p; break;
+                case 1: r = q; g = v; b = p; break;
+                case 2: r = p; g = v; b = t; break;
+                case 3: r = p; g = q; b = v; break;
+                case 4: r = t; g = p; b = v; break;
+                case 5: r = v; g = p; b = q; break;
+                default: r = 0; g = 0; b = 0;
+            }
+            return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+        }
+
+        function rgbToHex(r, g, b) {
+            return '#' + [r,g,b].map(c => c.toString(16).padStart(2, '0')).join('');
+        }
+
+        function rgbToHsv(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, v = max;
+            const d = max - min;
+            s = max === 0 ? 0 : d / max;
+            if (max === min) h = 0;
+            else {
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h * 360, s, v];
+        }
+
+        function updateColorFromPicker() {
+            const hue = parseFloat(hueSlider.value);
+            currentHue = hue;
+            drawSatValCanvas(hue);
+            const rgb = hsvToRgb(hue, currentSat, currentVal);
+            const hex = rgbToHex(rgb[0], rgb[1], rgb[2]);
+            previewBox.style.background = hex;
+            hexInput.value = hex;
+        }
+
+        function handleSatValMove(e) {
+            if (!isPointerDown) return;
+            const rect = satValCanvas.getBoundingClientRect();
+            const scaleX = satValCanvas.width / rect.width;
+            const scaleY = satValCanvas.height / rect.height;
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+                e.preventDefault();
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            let x = (clientX - rect.left) * scaleX;
+            let y = (clientY - rect.top) * scaleY;
+            x = Math.min(Math.max(x, 0), satValCanvas.width);
+            y = Math.min(Math.max(y, 0), satValCanvas.height);
+            const sat = x / satValCanvas.width;
+            const val = 1 - (y / satValCanvas.height);
+            currentSat = sat;
+            currentVal = val;
+            const hue = parseFloat(hueSlider.value);
+            const rgb = hsvToRgb(hue, sat, val);
+            const hex = rgbToHex(rgb[0], rgb[1], rgb[2]);
+            previewBox.style.background = hex;
+            hexInput.value = hex;
+        }
+
+        satValCanvas.addEventListener('mousedown', (e) => {
+            isPointerDown = true;
+            handleSatValMove(e);
+        });
+        window.addEventListener('mousemove', handleSatValMove);
+        window.addEventListener('mouseup', () => { isPointerDown = false; });
+        satValCanvas.addEventListener('touchstart', (e) => {
+            isPointerDown = true;
+            handleSatValMove(e);
+        });
+        satValCanvas.addEventListener('touchmove', handleSatValMove);
+        satValCanvas.addEventListener('touchend', () => { isPointerDown = false; });
+
+        hueSlider.addEventListener('input', updateColorFromPicker);
+
+        hexInput.addEventListener('input', () => {
+            let val = hexInput.value.trim();
+            if (/^#?[0-9a-f]{6}$/i.test(val)) {
+                if (!val.startsWith('#')) val = '#' + val;
+                previewBox.style.background = val;
+                const rgb = hexToRgb(val);
+                if (rgb) {
+                    const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+                    hueSlider.value = hsv[0];
+                    currentSat = hsv[1];
+                    currentVal = hsv[2];
+                    drawSatValCanvas(hsv[0]);
+                }
+            }
+        });
+
+        applyBtn.addEventListener('click', () => {
+            const hex = hexInput.value.trim();
+            if (/^#?[0-9a-f]{6}$/i.test(hex)) {
+                const finalHex = hex.startsWith('#') ? hex : '#' + hex;
+                updateThemeColor(finalHex);
+                pickerCard.classList.remove('open');
+            }
+        });
+
+        pickerBtn.addEventListener('click', () => {
+            pickerCard.classList.toggle('open');
+            if (pickerCard.classList.contains('open')) {
+                updateColorFromPicker();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!pickerCard.contains(e.target) && e.target !== pickerBtn && !pickerBtn.contains(e.target)) {
+                pickerCard.classList.remove('open');
+            }
+        });
+
+        drawSatValCanvas(240);
+        previewBox.style.background = '#aaa7ff';
+        hexInput.value = '#aaa7ff';
+
+        // ==================== 4. 音乐播放 ====================
+        const musicBtn = document.getElementById('musicBtn');
+        const musicIcon = document.getElementById('musicIcon');
+        let audio = null;
+        let isPlaying = false;
+
+        const MUSIC_PATH = './下村陽子 - Somnus (Instrumental Version).mp3';
+
+        function createAudio() {
+            if (audio) {
+                audio.pause();
+                audio = null;
+            }
+            audio = new Audio(MUSIC_PATH);
+            audio.loop = true;
+            audio.addEventListener('error', (e) => {
+                console.warn('音乐加载失败，请检查路径:', MUSIC_PATH, e);
+            });
+            return audio;
+        }
+
+        musicBtn.addEventListener('click', () => {
+            if (!audio) {
+                createAudio();
+            }
+            if (isPlaying) {
+                audio.pause();
+                isPlaying = false;
+                musicIcon.className = 'fas fa-play';
+                musicBtn.classList.remove('playing');
+            } else {
+                audio.play().then(() => {
+                    isPlaying = true;
+                    musicIcon.className = 'fas fa-pause';
+                    musicBtn.classList.add('playing');
+                }).catch((err) => {
+                    console.warn('播放失败，可能文件不存在:', err);
+                    alert('找不到音乐文件，请检查路径是否正确。\n当前路径: ' + MUSIC_PATH);
+                    audio = null;
+                    musicIcon.className = 'fas fa-play';
+                    musicBtn.classList.remove('playing');
+                    isPlaying = false;
+                });
+            }
+        });
+
+        // ==================== 5. 搜索交互 ====================
+        const searchInput = document.getElementById('searchBox');
+        const brandEl = document.getElementById('brandText');
+
+        function handleSearchFocus() {
+            searchInput.classList.add('active-search');
+            brandEl.classList.add('active-brand');
+        }
+        function handleSearchBlur() {
+            searchInput.classList.remove('active-search');
+            brandEl.classList.remove('active-brand');
+        }
+        function executeSearch() {
+            const query = searchInput.value.trim();
+            if (query === '') {
+                const original = searchInput.placeholder;
+                searchInput.placeholder = '🔍 输入关键词...';
+                setTimeout(() => { searchInput.placeholder = original; }, 1200);
+                return;
+            }
+            window.open(`https://www.baidu.com/s?wd=${encodeURIComponent(query)}`, '_blank');
+            searchInput.blur();
+        }
+        searchInput.addEventListener('focus', handleSearchFocus);
+        searchInput.addEventListener('blur', handleSearchBlur);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                executeSearch();
+            }
+        });
+
+        // ==================== 6. 窗口自适应 ====================
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+
+        // ==================== 7. 初始化 ====================
+        initWaves();
+        resizeCanvas();
+        animateWaves();
+        updateThemeColor('#aaa7ff');
+        window.updateTheme = updateThemeColor;
+    })();
+</script>
+</body>
+</html>
